@@ -1,0 +1,150 @@
+\documentclass{article}
+
+\usepackage{Sweave}
+\begin{document}
+\input{ex10_AndreWerneck-concordance}
+
+\title{Exercicio 10 - Redes Neurais Artificiais}
+\author{Andre Costa Werneck}
+\date{26/06/2022}
+\maketitle
+\newpage
+
+\section{Boston Housing}
+
+Para a base de dados Boston Housing,o objetivo era prever os valores da variável MEDV, que representa o valor das casas ocupadas na unidade dos milhares de dólares.Os dados de erro foram obtidos através da média e do desvio padrão em 10 execuções diferentes do MLP. 
+
+
+
+\textbf{Usando uma arquitetura com 5 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.00696114430906137 +- 0.000783877055127541
+\end{Soutput}
+\end{Schunk}
+
+\textbf{Usando uma arquitetura com 20 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.0070314079977109 +- 0.00137353034215388
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.00696947009154949 +- 0.00120237482470667
+\end{Soutput}
+\end{Schunk}
+
+\textbf{Usando uma arquitetura com 5 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.00686482965877194 +- 0.000599425028504114
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 20 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.00694376550143949 +- 0.00053885013551141
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.00835356032778352 +- 0.00229493178990436
+\end{Soutput}
+\end{Schunk}
+
+Para a base de dados da Boston Housing, ao utilizar a função de ativação linear na saída, observou-se claramente a tendência de overfitting da rede ao se aumentar o número de neurônios e constatou-se também que a melhor resolução do problema pode estar entre 10 e 20 neurônios. Além disso, ao usar a função logística como ativação da saída, observou-se uma maior estabilidade do erro, assim como valores bem próximos aos dos melhores resultados quando comparados aos obtidos com a função linear. De qualquer forma, mesmo com resultados ligeiramente piores com redes superdimensionadas, pode-se considerar que o MLP conseguiu apresentar uma boa solução para o problema de previsão dos preços das casas de Boston graças aos valores de erro de baixa magnitude observados. 
+
+
+\section{Statlog Heart}
+
+Para a base de dados Statlog Heart,o objetivo era prever os valores da variável MEDV, que representa o valor das casas ocupadas na unidade dos milhares de dólares.Os dados de erro foram obtidos através da média e do desvio padrão em 10 execuções diferentes do MLP. 
+
+
+\textbf{Usando uma arquitetura com 5 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.187037037037037 +- 0.0234242789642102
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.796296296296296
+\end{Soutput}
+\end{Schunk}
+
+\textbf{Usando uma arquitetura com 20 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.217592592592593 +- 0.0306318414217272
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.759259259259259
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios e com 1000 iterações.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.243518518518519 +- 0.0365320511825316
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.777777777777778
+\end{Soutput}
+\end{Schunk}
+
+\textbf{Usando uma arquitetura com 5 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.178703703703704 +- 0.00878410461157883
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.814814814814815
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 20 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.166666666666667 +- 0.0163317982164481
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.833333333333333
+\end{Soutput}
+\end{Schunk}
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+\begin{Schunk}
+\begin{Soutput}
+MSE médio +- desvio padrão = 0.173148148148148 +- 0.0123841991652709
+\end{Soutput}
+\begin{Soutput}
+Acuracia = 0.814814814814815
+\end{Soutput}
+\end{Schunk}
+
+Já para a base da Statlog Heart, ficou claro que o modelo performa melhor com uma função logística, que, mais uma vez, apresentou os valores de erro mais estáveis e mais baixos. Isso poderia já ser esperado uma vez que o problema é de classificação e não de aproximação de funções. Entretanto, percebeu-se que essa base necessita de arquiteturas maiores para resolver o problema e apresentar uma solução plausível. Isso ficou bastante evidente ao se utilizar uma função de ativação linear na saída.
+
+\end{document}
+

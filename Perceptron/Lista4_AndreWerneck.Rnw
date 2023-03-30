@@ -1,0 +1,12 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Lista 4 - Perceptron}
+\author{André Werneck}
+
+\section{Exercicio 3}
+BLABALALALALALALAAL
+
+
+\end{document}

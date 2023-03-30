@@ -1,0 +1,287 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\title{Exercicio 8 - Redes Neurais Artificiais}
+\author{Andre Costa Werneck}
+\date{31/05/2022}
+\maketitle
+\newpage
+
+<<echo=FALSE>>=
+rm(list = ls())
+library('caret')
+library(mlbench)
+library('corpcor')
+@
+
+<<echo=FALSE>>=
+# carregando os dados
+data(BreastCancer)
+
+bcdata <- as.matrix(BreastCancer)
+
+# tratando os dados com NA 
+
+bcdata[is.na(bcdata)] <- 0
+bcdata <- bcdata[,2:11]
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- bcdata[,10]
+originalClasses <- bcdata[,10]
+
+for (i in 1:length(classes)) {
+  if (classes[i]=="benign") {
+    classes[i]<-as.numeric(-1)
+  }
+  else{
+    classes[i] <-as.numeric(1)
+  }
+}
+
+bcdata <- as.matrix(bcdata[,1:9])
+class(bcdata) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+bcdata = (bcdata - min(bcdata))/(max(bcdata)-min(bcdata))
+
+
+@
+
+<<echo=FALSE>>=
+
+trainRBF <- function(xin,yin,p){
+  
+  # aplica a PDF nos dados -> OBRENÇAO DA MATRIX H 
+  pdfnvar<-function(x,m,K,n) ((1/(sqrt((2*pi)^n*(det(K)))))*exp(-0.5*(t(x-m) %*% (solve(K)) %*% (x-m))))
+  
+  # pega as dimensoes de entrada
+  N <- dim(xin)[1]
+  n <- dim(xin)[2]
+  xin <- as.matrix(xin)
+  yin <- as.matrix(yin)
+  
+  # aplica clustering nos dados com k-means nativo do R
+  dataclustering <- kmeans(xin,p)
+  
+  centers <- as.matrix(dataclustering$centers) # armazena os centros encontrados
+  covlist <- list()
+  
+  # estima matriz de covariancia para cada um dos centros
+  for(i in 1:p){
+    ici <- which(dataclustering$cluster == i)
+    xci <- xin[ici,]
+    if (n == 1)
+      covi <- var(xci)
+    else 
+      covi<-cov(xci)
+    covlist[[i]] <- covi
+  }
+  
+  #determina matriz H
+  H <- matrix(nrow = N,ncol = p)
+  for (j in 1:N) {
+    for(i in 1:p){
+      mi<-centers[i,]
+      covi <- covlist[i]
+      covi<-matrix(unlist(covlist[i]),ncol = n,byrow=T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j,],mi,covi,n)
+    }  
+  }
+  
+  Haug <- cbind(H,1)
+  # calcula W usando a pseudoinversa de Haug e sem regularizacao
+  W <- (solve(t(Haug)%*%Haug) %*% t(Haug)) %*% yin
+  
+  return(list(centers,covlist,W,H))
+
+}
+
+YRBF <- function(xin,modelRBF,binary){
+  # declara a funcao gaussiana radial 
+  pdfnvar<-function(x,m,K,n) ((1/(sqrt((2*pi)^n*(det(K)))))*exp(-0.5*(t(x-m) %*% (solve(K)) %*% (x-m))))
+  
+  # pega as dimensoes de entrada
+  N <- dim(xin)[1]
+  n <- dim(xin)[2]
+  xin <- as.matrix(xin)
+
+  centers<-as.matrix(modelRBF[[1]])
+  covlist <- modelRBF[[2]]
+  p <- length(covlist) # numero de funcoes radiais
+  W <- modelRBF[[3]]
+  
+  #determina matriz H
+  H <- matrix(nrow = N,ncol = p)
+  for (j in 1:N) {
+    for(i in 1:p){
+      mi<-centers[i,]
+      covi <- covlist[i]
+      covi<-matrix(unlist(covlist[i]),ncol = n,byrow=T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j,],mi,covi,n)
+    }  
+  }
+  
+  Haug <- cbind(H,1)
+  Yhat <- Haug %*% W
+  
+  if(binary==TRUE)
+    return(sign(Yhat))
+  else
+    return(Yhat)
+}
+
+@
+
+<<echo=False>>=
+
+# selecionando aleatoriamente 70% das amostras de treino
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+separedData <-separeTrainAndTest(bcdata,classes,0.7)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+@
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 5
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxm <- 0
+
+for (i in 1:repeats) {
+  
+  model <- trainRBF(Xtrain,Ytrain,p)
+  
+  yhatTrain <- YRBF(Xtrain,model,binary = TRUE)
+  
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxm <- model
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+model <- auxm
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+MSEtrain <- (t(Ytrain-yhatTrain) %*% (Ytrain-yhatTrain))/dim(Ytrain)[1]
+
+yhatTest <- YRBF(Xtest,model,binary = TRUE)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+MSEtest <- (t(Ytest-yhatTest) %*% (Ytest-yhatTest))/dim(Ytest)[1]
+
+@
+\section{RBF}
+\subsection{BASE BREAST CANCER}
+
+Para a base do Breast Cancer, seguem as acuracias com:
+\\p = 5 
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}]\n")
+glue::glue("MSE treino = {MSEtrain}\n")
+glue::glue("MSE teste = {MSEtest}")
+@
+
+p = 13
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 10
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxm <- 0
+
+for (i in 1:repeats) {
+  
+  model <- trainRBF(Xtrain,Ytrain,p)
+  
+  yhatTrain <- YRBF(Xtrain,model,binary = TRUE)
+  
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxm <- model
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+model <- auxm
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+MSEtrain <- (t(Ytrain-yhatTrain) %*% (Ytrain-yhatTrain))/dim(Ytrain)[1]
+
+yhatTest <- YRBF(Xtest,model,binary = TRUE)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+MSEtest <- (t(Ytest-yhatTest) %*% (Ytest-yhatTest))/dim(Ytest)[1]
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}]\n")
+glue::glue("MSE treino = {MSEtrain}\n")
+glue::glue("MSE teste = {MSEtest}")
+@
+
+
+
+\end{document}

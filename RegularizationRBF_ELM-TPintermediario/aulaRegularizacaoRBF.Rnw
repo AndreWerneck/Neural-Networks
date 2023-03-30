@@ -1,0 +1,133 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<echo=FALSE>>=
+rm(list=ls())
+library('corpcor')
+ 
+rbfG1var<-function(x,m,r) (exp(-0.5 * ((x-m)^2/(2*r^2))))
+calcA <- function(H,L) (t(H) %*% H + L)
+calcP <- function(H,A,N) (diag(N) - H %*% solve(A) %*% t(H))
+calcLOO <- function(P,y,N) ((t(y) %*% P %*% (t(solve(diag(diag(P)))) %*% solve(diag(diag(P)))) %*% P %*% y)/N)
+calcGCV <- function(P,y,N) (N * (t(y) %*% (P %*% P) %*% y)/(sum(diag(P)))^2)
+@
+
+
+<<echo=FALSE>>=
+xl<--10
+xr<-10
+st<-0.8
+p<-21
+r<-0.6
+faixa<-(xr-xl)/p
+c0<-xl+0.5*faixa
+ci<-matrix()
+
+x<-seq(xl,xr,st)+0.001
+y<-data.matrix(sin(x)/x + 0.1*rnorm(length(x)))
+xrange<-seq(xl,xr,0.05)+0.001
+yrange<-data.matrix(sin(xrange)/xrange)
+N<-length(x)
+@
+ 
+
+<<echo=FALSE>>=
+###### Aloca os p centros #####
+ci[1]<-c0
+for (i in 2:p)
+ ci[i]<-ci[i-1]+faixa
+
+######## Projeção H ###########  
+H<-matrix(nrow=length(x),ncol=p)
+for (i in 1:p)
+   H[,i]<-rbfG1var(x,ci[i],r)
+
+######## Projeção H range ###################  
+Hrange<-matrix(nrow=length(xrange),ncol=p)
+for (i in 1:p)
+   Hrange[,i]<-rbfG1var(xrange,ci[i],r)
+@
+
+
+<<echo=FALSE>>=
+####### Varia lambda e gera soluções ########
+lseq<-seq(0,1,0.1)
+nl<-length(lseq)
+mobjs<-matrix(nrow=nl,ncol=2)
+mw<-matrix(nrow=nl,ncol=p)
+cl<-0
+Alist<-list()
+Plist<-list()
+LOOLambda<-matrix(nrow = nl,ncol = 1)
+GCVLambda<-matrix(nrow = nl,ncol = 1)
+
+for (i in lseq)
+{
+  cl<-cl+1
+  w<-solve((t(H) %*% H) + i*diag(p)) %*% t(H) %*% y
+  Alist[[cl]] <- calcA(H,i*diag(p))
+  Plist[[cl]] <- calcP(H,Alist[[cl]],N)
+  LOOLambda[cl] <- calcLOO(Plist[[cl]],y,N)  
+  GCVLambda[cl] <- calcGCV(Plist[[cl]],y,N)
+ 
+  mobjs[cl,2]<-sum(H %*% w - y)^2
+  mobjs[cl,1]<-t(w) %*% w
+  mw[cl,]<-w
+}
+##############################################  
+plot((mobjs[,1]),(mobjs[,2]),type = 'b')
+emw<-matrix(nrow=nl,ncol=1)
+cl<-0
+for (i in (1:nl))
+{
+  cl<-cl+1
+  w<-as.matrix(mw[i,])
+  yhatr<-Hrange %*% w  
+  emw[cl]<-sum((yhatr-yrange)^2)
+  plot(x,y,xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  par(new=T)
+  plot(xrange,yhatr,type='l',col='red',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  par(new=T)
+ 
+}
+
+  bestsol<-which.min(emw)
+  w<-as.matrix(mw[bestsol,])
+  yhatr<-Hrange %*% w  
+  par(new=T)
+  plot(xrange,yhatr,type='l',col='black',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+@
+
+
+<<echo=FALSE>>=
+######## Plota Normais
+  par(new=T)
+  for (i in 1:p)
+  {
+    plot(xrange,Hrange[,i],col='blue',type='l',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab='',ylab='')
+    par(new=T)
+  }
+  par(new=F)  
+  plot(lseq,emw,type = 'b')
+ 
+  ##############
+  bestsol<-which.min(emw)
+  w<-as.matrix(mw[bestsol,])
+  yhatrbest<-Hrange %*% w  
+  plot(xrange,yhatrbest,type='l',col='black',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  par(new=T)
+  plot(xrange,yrange,type='l',col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+ 
+ 
+  plot(lseq,LOOLambda,type='b')
+ 
+  print(bestsol)
+
+
+@
+
+
+
+\end{document}

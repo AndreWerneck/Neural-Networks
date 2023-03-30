@@ -1,0 +1,191 @@
+\documentclass[12pt,a4paper]{article}
+
+\title{LISTA 5 - ELM}
+
+\centering
+
+\author{Andre Werneck - MATRICULA : 2017088140}
+
+\usepackage{Sweave}
+\usepackage{graphics}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+
+REDES NEURAIS ARTIFICIAIS
+
+\end{center}
+
+\SweaveOpts{concordance=TRUE}
+
+\newpage
+
+\section{Exercicio 1 - Plot da Superficie de Separacao}
+
+
+<<echo=FALSE,results=hide>>=
+# gerando os dados de entrada
+rm(list = ls())
+
+library('mlbench')
+library('corpcor')
+library('caret')
+library('plot3D')
+
+cd0 <- mlbench.2dnormals(200)
+
+cd1 <- mlbench.xor(100)
+
+cd2 <- mlbench.circle(100)
+
+cd3 <- mlbench.spirals(100,sd = 0.05)
+
+# funcao ELM 
+treinaELM <- function(Xin, Yin, p){
+  #pega as dimensoes 
+  
+  N <- dim(Xin)[1]
+  n <- dim(Xin)[2]
+  
+  # coloca 1 para termo de polarizacao
+  
+  Xaug <- cbind(Xin,1)
+  #cria Z aleatoriamente 
+  Z <- replicate(p,runif((n+1),-0.5,0.5))
+  
+  # calcula H
+  H <- tanh(Xaug %*% Z)
+  
+  #calcula pseudoinversa
+  Hinv <- pseudoinverse(H)
+  
+  # calcula w 
+  W <- Hinv %*% Yin
+  
+  return(list(W,H,Z))
+  
+}
+# funcao para calcular saida da ELM
+YELM <- function(Xin,Z,W){
+  n <- dim(Xin)[2]
+  Xaug <- cbind(Xin,1)
+  H <- tanh(Xaug %*% Z)
+  Yhat <- sign(H%*%W) # retorna -1,0 ou 1 de acordo com o sinal do numero calculado
+  return(Yhat)
+  
+}
+
+@
+
+\begin{itemize}
+
+\item Base "2dnormals"
+\newline
+
+<<echo=FALSE>>=
+
+x <- as.matrix(cd3$x)
+y <- as.matrix(cd3$classes)
+class(y) <- "numeric"
+y[y==2]<-(-1)
+y[y==1]<- (1)
+
+@
+
+<<echo=false>>=
+
+# selecionando aleatoriamente 70% das amostras de treino
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+@
+
+ELM com p=5 neuronios
+
+<<echo=false>>=
+# training the model
+p <- 50
+model <- treinaELM(x,y,p)
+
+W <- model[[1]]
+H <- model[[2]]
+Z <- model[[3]]
+
+# calculando Yhat de treino
+
+yhattrain <- YELM(x,Z,W)
+
+acc <- y - yhattrain
+
+acc <- length(acc[acc==0])/dim(y)[1]
+accTrain <- as.numeric(confusionMatrix(factor(y),factor(yhattrain))$overall[1])
+
+seqi <- seq(-2,2,0.1)
+seqj <- seq(-2,2,0.1)
+
+M <- matrix(0,nrow = length(seqi),ncol = length(seqj))
+
+ci <- 0
+for (i in seqi) {
+  ci<-ci+1
+  cj<-0
+  for (j in seqj) {
+    cj<-cj+1
+    X<-as.matrix(cbind(i,j))
+    M[ci,cj]<- YELM(X,Z,W)
+    
+  }
+  
+}
+
+plot(x[,1],x[,2],col = 'red', xlim = c(-2,2), ylim = c(-2,2))
+par(new=T)
+#plot(Xblue[,1],Xblue[,2],col = 'blue', xlim = c(0,6), ylim = c(0,6),xlab = '',ylab = '')
+#par(new=T)
+@
+
+\begin{figure}[!htb]
+\begin{center}
+<<echo=F,fig=TRUE>>=
+plot(x[,1],x[,2],col = 'red', xlim = c(-2,2), ylim = c(-2,2))
+par(new=T)
+contour(seqi,seqj,M,xlim = c(-2,2),ylim = c(-2,2),xlab= '', ylab='')
+@
+\end{center}
+\caption{Contorno da Superficie em 2D}
+\label{Contorno da Superficie em 2D}
+\end{figure}
+
+\begin{figure}[!htb]
+\begin{center}
+<<echo=F,fig=TRUE>>=
+persp3D(seqi,seqj,M,counter = T,theta=55,phi=30,r=40,d=0.1,expand=0.5,ltheta=90,lphi=180,shade=0.4,ticktype='detailed',nticks=5)
+print(accTrain)
+@
+\end{center}
+\caption{Contorno da Superficie em 3D}
+\label{Contorno da Superficie em 3D}
+\end{figure}
+
+
+
+\end{itemize}
+
+\end{document}

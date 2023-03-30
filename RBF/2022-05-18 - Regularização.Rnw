@@ -1,0 +1,52 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<>>=
+rm(list=ls())
+
+rbfG1var <- function(x,m,r) (exp(-0.5 * (x-m)^2/(r^2)))
+
+x <- data.matrix(seq(0, 2*pi, 0.3*pi))
+N <- length(x)
+print(x)
+y <- data.matrix(sin(x))
+print(y)
+
+
+m1 <- 0.5*pi
+m2 <- 1.5*pi
+r1 <- 0.6
+r2 <- 0.6
+p <- 2
+
+h1 <- rbfG1var(x, m1, r1)
+h2 <- rbfG1var(x, m2, r2)
+H <- cbind(h1, h2)
+
+xrange <- seq(0, 2*pi, 0.1*pi)
+plot(xrange, rbfG1var(xrange, m1, r1), type='l', xlim=c(0,2*pi), ylim=c(-1,1), col='blue')
+par(new=T)
+plot(xrange, rbfG1var(xrange, m2, r2), type='l', xlim=c(0,2*pi), ylim=c(-1,1))
+
+print(H)
+
+xlesspi <- 1*(x>=pi)
+
+L <- 0.5*diag(p)
+A <- t(H) %*% H + L
+P <- (diag(N) - H %*% solve(A) %*% t(H))
+w <- solve(A) %*% t(H) %*% y
+
+xtst <- seq(0, 2*pi, 0.01*pi)
+h1tst <- rbfG1var(xtst, m1, r1)
+h2tst <- rbfG1var(xtst, m2, r2)
+Htst <- cbind(h1tst, h2tst)
+yhattst <- Htst %*% w
+
+par(new=T)
+plot(xtst, yhattst, type='l', xlim=c(0, 2*pi), ylim=c(-1,1), col='red')
+@
+
+\end{document}

@@ -1,0 +1,1012 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\title{Exercicio 6 - Redes Neurais Artificiais}
+\author{Andre Costa Werneck}
+\date{16/05/2022}
+\maketitle
+\newpage
+
+<<echo=FALSE>>=
+rm(list = ls())
+library('caret')
+library(mlbench)
+library('corpcor')
+@
+
+
+<<echo=FALSE>>=
+# carregando os dados
+data(BreastCancer)
+
+bcdata <- as.matrix(BreastCancer)
+
+# tratando os dados com NA 
+
+bcdata[is.na(bcdata)] <- 0
+bcdata <- bcdata[,2:11]
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- bcdata[,10]
+originalClasses <- bcdata[,10]
+
+for (i in 1:length(classes)) {
+  if (classes[i]=="benign") {
+    classes[i]<-as.numeric(-1)
+  }
+  else{
+    classes[i] <-as.numeric(1)
+  }
+}
+
+bcdata <- as.matrix(bcdata[,1:9])
+class(bcdata) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+@
+
+<<echo=FALSE>>=
+
+# função ELM 
+treinaELM <- function(Xin, Yin, p){
+  #pega as dimensões 
+  
+  N <- dim(Xin)[1]
+  n <- dim(Xin)[2]
+  
+  # coloca 1 para termo de polarizacao
+  
+  Xaug <- cbind(Xin,1)
+  #cria Z aleatoriamente 
+  Z <- replicate(p,runif((n+1),-0.5,0.5))
+  
+  # calcula H
+  H <- tanh(Xaug %*% Z)
+  
+  #calcula pseudoinversa
+  Hinv <- pseudoinverse(H)
+  
+  # calcula w 
+  W <- Hinv %*% Yin
+  
+  return(list(W,H,Z))
+  
+}
+
+# funcao para calcular saida da ELM
+YELM <- function(Xin,Z,W){
+  n <- dim(Xin)[2]
+  Xaug <- cbind(Xin,1)
+  H <- tanh(Xaug %*% Z)
+  Yhat <- sign(H%*%W) # retorna -1,0 ou 1 de acordo com o sinal do numero calculado
+  return(Yhat)
+  
+}
+
+@
+
+<<echo=False>>=
+
+# selecionando aleatoriamente 70% das amostras de treino
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+separedData <-separeTrainAndTest(bcdata,classes,0.7)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+@
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 5
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+\section{ELM}
+\subsection{BASE BREAST CANCER}
+
+Para a base do Breast Cancer, seguem as acuracias com:
+\\p = 5 
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 10 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 10
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 30 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 30
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 50 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 50
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 100 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 100
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 300 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 300
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+Para comecar a analise, vale ressaltar que para cada treinamento da rede, com cada numero diferente de neuronios, foi feito um loop for que repetiu o treinamento e pegou os valores medios da acuracia, dos pesos e de Z, como pedido. 
+
+Dessa forma, observou-se, claramente, que para o conjunto de treinamento, a convergencia do modelo aumenta a medida que o numero de neuronios tambem cresce. Entretanto, a acuracia de teste parece ser maxima com o valor de p=30 ou p=50, nesse caso. Foi muito interessante notar, ademais, que se aumentarmos muito o numero de neuronios, a acuracia do conjunto de teste cai consideravelmente, mesmo que a acuracia do conjunto de treino permaneca maxima (em 100\%). Isso e um sinal claro de perda de capacidade de generalizacao do modelo, ou seja, e um forte indicio de overfitting. Dessa forma, foi valido observar que nem sempre a maxima acuracia de treino representa a melhor solucao para o problema, ilustrando ponto que ja haviamos aprendido nas aulas da disciplina. 
+
+Vale ressaltar que um treinamento com a mesma base de dados foi realizado com um Perceptron simples no exercicio anterior. No caso do perceptron, houve boa convergencia com um numero de epocas a partir de 100, com acuracia chegando a 97,6\%. Comparando os dois modelos vale dizer que foi observada uma maior rapidez na ELM para uma acuracia muito semelhante (com p= 30 e 50). Dessa forma, creio que fica evidente a melhora gracas a linearizacao do modelo advinda da camada escondida da ELM, modelo que pareceu apresentar, para esse, problema, menor custo computacional.   
+
+\subsection{Statlog (Heart)}
+
+<<echo=False>>=
+
+# carregando os dados
+heart <- as.matrix(read.table('heart.dat'))
+
+# tratando os dados com NA 
+heart[is.na(heart)] <- 0
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- heart[,14]
+originalClasses <- heart[,14]
+classes[classes==2] <- (-1)
+
+heart <- as.matrix(heart[,1:13])
+class(heart) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+heart = (heart - min(heart))/(max(heart)-min(heart))
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+# separando conjuntos de treino e de teste em 70 e 30%
+separedData <-separeTrainAndTest(heart,classes,0.7)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+@
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 5
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  H <- model[[2]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+@
+
+
+Para a base da Statlog, seguem as acuracias com:
+\\p = 5 
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 10 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 10
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 30 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 30
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 50 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 50
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 100 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 100
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+p = 300 
+
+<<echo=FALSE>>=
+
+#numero de neuronios
+p <- 300
+repeats <- 20
+auxacc <- 0
+auxacc2 <- 0
+auxw <- 0
+auxz <- 0
+
+for (i in 1:repeats) {
+  
+  model <- treinaELM(Xtrain,Ytrain,p)
+  
+  W <- model[[1]]
+  Z <- model[[3]]
+  
+  yhatTrain <- YELM(Xtrain,Z,W)
+  # calcula a acuracia 
+
+  accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+  
+  auxacc <- append(auxacc,accTrain)
+  
+  if (accTrain > auxacc2) {
+    
+    auxacc2 <- accTrain
+    auxw <- W
+    auxz <- Z
+  }
+  
+  
+}
+
+auxacc <- as.matrix(auxacc)
+auxaccuracy <- auxacc[(1:repeats+1),]
+W <- auxw
+Z <- auxz
+acc <- mean(auxaccuracy)
+std <- sd(auxaccuracy)
+
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+yhatTest <- YELM(Xtest,Z,W)
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yhatTest))$overall[1])
+
+
+@
+
+<<echo=false>>=
+glue::glue("acuracia treino = {acc} +- {std}\n")
+glue::glue("acuracia teste = {accTest}")
+@
+
+Oservou-se que a mesma analise da base do breast cancer pode, tambem, ser feita para a base da Stalog. Vale apenas ressaltar que o modelo teve muito mais dificuldade de aprendizado para a presente base. Foi necessaria uma normalizacao dos dados para ajudar na obtencao de uma solucao melhor e, mesmo convergindo ate 100\% no treinamento, para os conjuntos de teste, a acuracia maxima nao passou muito dos 85\%. No que concerne overfitting e acuracias maximas, a analise e identica a da base do breast cancer.
+
+\section{Perceptron - Statlog(heart)}
+
+<<echo=FALSE>>=
+
+# carregando os dados
+heart <- as.matrix(read.table('heart.dat'))
+
+# tratando os dados com NA 
+heart[is.na(heart)] <- 0
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- heart[,14]
+originalClasses <- heart[,14]
+classes[classes==2] <- (0)
+
+heart <- as.matrix(heart[,1:13])
+class(heart) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+heart = (heart - min(heart))/(max(heart)-min(heart))
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+# separando conjuntos de treino e de teste em 70 e 30%
+separedData <-separeTrainAndTest(heart,classes,0.7)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+
+@
+
+<<echo=False>>=
+
+# treinando o modelo 
+yperceptron <-function(xvec,w){
+  xvec <- cbind(xvec,-1)
+  u<-xvec %*% w
+  y<-1.0*(u>=0)
+  
+  return(as.matrix(y))
+}
+
+treinap <- function(xin,yin,eta,tol_parada,maxepocas){
+  
+  # pegando as dimensoes dos dados de entrada
+  N<-dim(xin)[1]
+  n<-dim(xin)[2]
+  
+  # adicionando coluna de 1s ao vetor de entrada
+  xin<-cbind(xin,-1)
+  # inicializando o vetor de pesos aleatoriamente
+  w<-as.matrix(runif(n+1)-0.5)
+  erroepoca<-tol_parada+10
+  epocaatual<-0
+  vetorEpocas <- matrix(nrow = 1,ncol = maxepocas)
+  
+  while((erroepoca>tol_parada)&&(epocaatual<maxepocas)) {
+    indexvec = sample(N)
+    erroQuad<-0
+    for (i in 1:N) {
+      #add estocasticidade ao treinamento
+      index<-indexvec[i]
+      #acha yhat
+      yhat<-1*((xin[index,]%*%w)>=0)
+      #calcula o erro
+      erroatual<-yin[index,]-yhat
+      w = w + eta*erroatual*xin[index,]
+      erroQuad <- erroQuad + erroatual*erroatual
+    }
+    epocaatual <- epocaatual + 1 # atualiza as epocas
+    vetorEpocas[epocaatual]<-erroQuad/N # erro medio de cada época
+    erroepoca <- vetorEpocas[epocaatual] 
+  }
+  return(list(w,vetorEpocas[1:epocaatual]))
+}
+
+
+@
+
+<<echo=False>>=
+
+# criando loop de treinamento 
+
+rep <- 30
+
+wv <- matrix(0,nrow = 14,ncol = 1) 
+
+for (i in 1:rep) {
+  
+  #print(i)
+  r <- treinap(Xtrain,Ytrain,1,0.0001,150)
+  wv <- wv + r[[1]]
+  
+}
+
+wv <- wv/rep
+
+YhatTest2 <- yperceptron(Xtest,wv)
+
+accTest2 <- 1- (t(Ytest-YhatTest2)%*%(Ytest-YhatTest2))/81
+
+confmTest2 <- confusionMatrix(factor(Ytest),factor(YhatTest2))
+
+print(confmTest2)
+
+
+@
+
+Observou-se que, com o Perceptron, assim como na base do Breast Cancer, houve maior dificuldade de aprendisagem. A acuracia ficou um pouco menor e o treinamento foi muito mais custoso em termos de tempo e recursos computacionais. Dessa forma, se conclui que a camada intermediaria que lineariza o problema realmente e efetiva em casos de problemas multivariados nos quais, apenas com um classificador linear, existe grande dificuldade de aprendizado. 
+
+\end{document}

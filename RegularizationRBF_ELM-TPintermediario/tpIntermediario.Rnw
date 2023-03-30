@@ -1,0 +1,678 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<echo=FALSE>>=
+rm(list=ls())
+set.seed(123)
+library('corpcor')
+library('mlbench')
+library('plot3D')
+library('glmnet')
+library('caret')
+library(mlbench)
+@
+
+Funcoes de Treinamento COM REGULARIZAÇÃO
+<<echo=FALSE>>=
+## RBF com regularização
+#Funcao RBF
+trainRBF <- function(xin,yin,p,lambda){
+  
+  # aplica a PDF nos dados -> OBRENÇAO DA MATRIX H 
+  pdfnvar<-function(x,m,K,n){
+    if(n==1){
+      r<-sqrt(as.numeric(K))
+      px <- (1/(sqrt(2*pi*r*r)))*exp(-0.5*((x-m)/(r))^2)
+    }
+    else px <- ((1/(sqrt((2*pi)^n*(det(K)))))*exp(-0.5*(t(x-m)%*%(solve(K))%*%(x-m))))
+    return(px)
+  } 
+  calcLOO <- function(P,y,N) ((t(y) %*% P %*% (t(solve(diag(diag(P)))) %*% solve(diag(diag(P)))) %*% P %*% y)/N)
+
+  # pega as dimensoes de entrada
+  N <- dim(xin)[1]
+  n <- dim(xin)[2]
+  xin <- as.matrix(xin)
+  yin <- as.matrix(yin)
+  
+  # aplica clustering nos dados com k-means nativo do R
+  dataclustering <- kmeans(xin,p)
+  
+  centers <- as.matrix(dataclustering$centers) # armazena os centros encontrados
+  covlist <- list()
+  
+  # estima matriz de covariancia para cada um dos centros
+  for(i in 1:p){
+    ici <- which(dataclustering$cluster == i)
+    xci <- xin[ici,]
+    if (n == 1)
+      covi <- var(xci)
+    else covi<-cov(xci)
+    covlist[[i]] <- covi
+  }
+  
+  #determina matriz H
+  H <- matrix(nrow = N,ncol = p)
+  for (j in 1:N) {
+    for(i in 1:p){
+      mi<-centers[i,]
+      covi <- covlist[i]
+      covi<-matrix(unlist(covlist[i]),ncol = n,byrow=T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j,],mi,covi,n)
+    }  
+  }
+  
+  Haug <- cbind(H,1)
+  # calcula W usando a pseudoinversa de Haug e COM regularizacao
+  L <- lambda * diag(p)
+  A <- t(H) %*% H + L
+  P <- (diag(N) - H %*% solve(A) %*% t(H))
+  LOO <- calcLOO(P,yin,N)
+  # encontrando os pesos com regularização 
+  W <- solve(A)%*% t(H) %*% yin
+  
+  return(list(centers,covlist,W,H,A,P,LOO))
+
+}
+YRBF <- function(xin,modelRBF,binary){
+  # declara a funcao gaussiana radial 
+  pdfnvar<-function(x,m,K,n) ((1/(sqrt((2*pi)^n*(det(K)))))*exp(-0.5*(t(x-m) %*% (solve(K)) %*% (x-m))))
+  
+  # pega as dimensoes de entrada
+  N <- dim(xin)[1]
+  n <- dim(xin)[2]
+  xin <- as.matrix(xin)
+
+  centers<-as.matrix(modelRBF[[1]])
+  covlist <- modelRBF[[2]]
+  p <- length(covlist) # numero de funcoes radiais
+  W <- modelRBF[[3]]
+  
+  #determina matriz H
+  H <- matrix(nrow = N,ncol = p)
+  for (j in 1:N) {
+    for(i in 1:p){
+      mi<-centers[i,]
+      covi <- covlist[i]
+      covi<-matrix(unlist(covlist[i]),ncol = n,byrow=T) + 0.001 * diag(n)
+      H[j,i] <- pdfnvar(xin[j,],mi,covi,n)
+    }  
+  }
+  
+  #Haug <- cbind(H,1)
+  Yhat <- H %*% W
+  
+  if(binary==TRUE)
+    return(sign(Yhat))
+  else
+    return(Yhat)
+}
+## ELM COM regularizaçao 
+
+# função ELM 
+treinaELM <- function(Xin, Yin, p,lambda){
+  #pega as dimensões 
+  
+  N <- dim(Xin)[1]
+  n <- dim(Xin)[2]
+  
+  # coloca 1 para termo de polarizacao
+  
+  Xaug <- cbind(Xin,1)
+  #cria Z aleatoriamente 
+  Z <- replicate(p,runif((n+1),-0.5,0.5))
+  
+  # calcula H
+  H <- tanh(Xaug %*% Z)
+  
+  L <- lambda * diag(p)
+  A <- t(H) %*% H + L
+  P <- (diag(N) - H %*% solve(A) %*% t(H))
+  
+  # encontrando os pesos com regularização 
+  W <- solve(A)%*% t(H) %*% Yin
+  
+  #calcula pseudoinversa
+  #Hinv <- pseudoinverse(H)
+  
+  # calcula w 
+  #W <- Hinv %*% Yin
+  
+  return(list(W,H,Z))
+  
+}
+YELM <- function(Xin,Z,W){
+  n <- dim(Xin)[2]
+  Xaug <- cbind(Xin,1)
+  H <- tanh(Xaug %*% Z)
+  Yhat <- sign(H%*%W) # retorna -1,0 ou 1 de acordo com o sinal do numero calculado
+  return(Yhat)
+  
+}
+
+calcA <- function(H,L) (t(H) %*% H + L)
+calcP <- function(H,A,N) (diag(N) - H %*% solve(A) %*% t(H))
+calcLOO <- function(P,y,N) ((t(y) %*% P %*% (t(solve(diag(diag(P)))) %*% solve(diag(diag(P)))) %*% P %*% y)/N)
+calcGCV <- function(P,y,N) (N * (t(y) %*% (P %*% P) %*% y)/(sum(diag(P)))^2)
+
+@
+
+Funçao SINC RBF
+<<echo=FALSE>>=
+x <- as.matrix(runif(500,-15,15))
+#x2 <- seq(-15,15,0.05) + 0.001
+#y2 <- data.matrix(sin(x2)/x2) 
+y <- as.matrix(sin(x)/x + rnorm(500,0,0.05))
+p <- 40
+model <- trainRBF(as.matrix(x),as.matrix(y),p,lambda = 0)
+H <- model[[4]]
+N<-length(x)
+
+@
+
+continuacao SINC
+<<echo=FALSE>>=
+plot(x,y)
+# training the model
+yhat <- YRBF(x,model,binary = FALSE)
+MSE <- (t(as.matrix(y)-yhat) %*% (as.matrix(y)-yhat))/dim(as.matrix(y))[1]
+#acc <- y - yhat
+#acc <- length(acc[acc==0])/dim(as.matrix(y)[1]
+plot(x,y,col = 'black')
+par(new=T)
+plot(x,yhat,col = 'blue')
+@
+
+Espiral ELM
+<<echo=FALSE>>=
+cd3 <- mlbench.spirals(100,sd = 0.05)
+x <- as.matrix(cd3$x)
+y <- as.matrix(cd3$classes)
+class(y) <- "numeric"
+y[y==2]<-(-1)
+y[y==1]<- (1)
+
+p <- 28
+model <- treinaELM(x,y,p,0.1)
+
+W <- model[[1]]
+H <- model[[2]]
+Z <- model[[3]]
+
+# calculando Yhat de treino
+
+yhattrain <- YELM(x,Z,W)
+
+acc <- y - yhattrain
+
+acc <- length(acc[acc==0])/dim(y)[1]
+
+seqi <- seq(-2,2,0.1)
+seqj <- seq(-2,2,0.1)
+
+M <- matrix(0,nrow = length(seqi),ncol = length(seqj))
+
+ci <- 0
+for (i in seqi) {
+  ci<-ci+1
+  cj<-0
+  for (j in seqj) {
+    cj<-cj+1
+    X<-as.matrix(cbind(i,j))
+    M[ci,cj]<- YELM(X,Z,W)
+    
+  }
+  
+}
+
+plot(x[,1],x[,2],col = 'red', xlim = c(-2,2), ylim = c(-2,2))
+par(new=T)
+contour(seqi,seqj,M,xlim = c(-2,2),ylim = c(-2,2),xlab= '', ylab='')
+@
+
+LOOCV para achar um lambda ótimo
+<<echo=FALSE>>=
+####### Varia lambda e gera soluções ########
+lseq<-seq(0,1,0.1)
+nl<-length(lseq)
+mobjs<-matrix(nrow=nl,ncol=2)
+mw<-matrix(nrow=nl,ncol=p)
+cl<-0
+Alist<-list()
+Plist<-list()
+LOOLambda<-matrix(nrow = nl,ncol = 1)
+GCVLambda<-matrix(nrow = nl,ncol = 1)
+
+
+for (i in lseq)
+{
+  cl<-cl+1
+  w<-solve((t(H) %*% H) + i*diag(p)) %*% t(H) %*% y
+  Alist[[cl]] <- calcA(H,i*diag(p))
+  Plist[[cl]] <- calcP(H,Alist[[cl]],N)
+  LOOLambda[cl] <- calcLOO(Plist[[cl]],y,N)  
+  GCVLambda[cl] <- calcGCV(Plist[[cl]],y,N)
+ 
+  #mobjs[cl,2]<-sum(H %*% w - y)^2
+  #mobjs[cl,1]<-t(w) %*% w
+  mw[cl,]<-w
+}
+
+emw<-matrix(nrow=nl,ncol=1)
+cl<-0
+#model2 <- trainRBF(as.matrix(x2),y2,p,0)
+#H2 <- model2[[4]] 
+for (i in (1:nl))
+{
+  cl<-cl+1
+  w<-as.matrix(mw[i,])
+  yhatr<-H %*% w  
+  emw[cl]<-sum((yhatr-y)^2)
+  #plot(x,y,xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+  #plot(x,yhatr,col='red',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+ 
+}
+
+bestsolemw<-which.min(emw)
+bestLambdaemw <- lseq[bestsolemw]
+w<-as.matrix(mw[bestsolemw,])
+yhatr<-H %*% w  
+#par(new=T)
+#plot(x,yhatr,col='blue',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+xrange <- x
+Hrange <- H
+#xr <- 15
+#xl <- -15
+#par(new=T)
+#for (i in 1:p)
+#{
+#  plot(xrange,Hrange[,i],col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab='',ylab='')
+#  par(new=T)
+#}
+#par(new=F)  
+plot(lseq,emw,type = 'b')
+
+##############
+bestsol<-which.min(LOOLambda)
+w<-as.matrix(mw[bestsol,])
+yhatrbest<-Hrange %*% w  
+#plot(xrange,yhatrbest,col='yellow',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+#par(new=T)
+#plot(xrange,y,col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+bestLambda <- lseq[bestsol]
+
+plot(lseq,LOOLambda,type='b')
+
+print(bestsol)
+print(bestLambda)
+@
+
+BREAST CANCER
+<<echo=FALSE>>=
+# carregando os dados
+data(BreastCancer)
+
+bcdata <- as.matrix(BreastCancer)
+
+# tratando os dados com NA 
+
+bcdata[is.na(bcdata)] <- 0
+bcdata <- bcdata[,2:11]
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- bcdata[,10]
+originalClasses <- bcdata[,10]
+
+for (i in 1:length(classes)) {
+  if (classes[i]=="benign") {
+    classes[i]<-as.numeric(-1)
+  }
+  else{
+    classes[i] <-as.numeric(1)
+  }
+}
+
+bcdata <- as.matrix(bcdata[,1:9])
+class(bcdata) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+bcdata = (bcdata - min(bcdata))/(max(bcdata)-min(bcdata))
+
+# selecionando aleatoriamente 70% das amostras de treino
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+separedData <-separeTrainAndTest(bcdata,classes,0.7)
+
+x <- separedData[[1]]
+y <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+p <- 100
+N<-dim(x)[1]
+
+repeats <- 5
+mw2<-matrix(nrow=repeats,ncol=p)
+msem<-matrix(nrow=repeats,ncol=1)
+hlist <- list()
+
+for(i in 1: repeats){
+  model <- treinaELM(x,y,p,lambda = 0)
+  mw2[i,] <- model[[1]]
+  hlist[[i]] <- model[[2]]
+  yhatTrain <- YELM(x,model[[3]],model[[1]])
+  MSE <- (t(y-yhatTrain) %*% (y-yhatTrain))/dim(y)[1]
+  msem[i] <- MSE
+}
+
+msemin <- which.min(msem)
+peso <- mw2[msemin,]
+H <- hlist[[msemin]]
+
+####### Varia lambda e gera soluções ########
+lseq<-seq(0,20,0.2)
+nl<-length(lseq)
+mobjs<-matrix(nrow=nl,ncol=2)
+mw<-matrix(nrow=nl,ncol=p)
+cl<-0
+Alist<-list()
+Plist<-list()
+LOOLambda<-matrix(nrow = nl,ncol = 1)
+GCVLambda<-matrix(nrow = nl,ncol = 1)
+
+
+for (i in lseq)
+{
+  cl<-cl+1
+  w<-solve((t(H) %*% H) + i*diag(p)) %*% t(H) %*% y
+  Alist[[cl]] <- calcA(H,i*diag(p))
+  Plist[[cl]] <- calcP(H,Alist[[cl]],N)
+  LOOLambda[cl] <- calcLOO(Plist[[cl]],y,N)  
+  GCVLambda[cl] <- calcGCV(Plist[[cl]],y,N)
+ 
+  #mobjs[cl,2]<-sum(H %*% w - y)^2
+  #mobjs[cl,1]<-t(w) %*% w
+  mw[cl,]<-w
+}
+
+emw<-matrix(nrow=nl,ncol=1)
+cl<-0
+#model2 <- trainRBF(as.matrix(x2),y2,p,0)
+#H2 <- model2[[4]] 
+for (i in (1:nl))
+{
+  cl<-cl+1
+  w<-as.matrix(mw[i,])
+  yhatr<-H %*% w  
+  emw[cl]<-sum((yhatr-y)^2)/dim(x)[1]
+  #plot(x,y,xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+  #plot(x,yhatr,col='red',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+ 
+}
+
+bestsolemw<-which.min(emw)
+bestLambdaemw <- lseq[bestsolemw]
+w<-as.matrix(mw[bestsolemw,])
+yhatr<-sign(H %*% w)  
+#par(new=T)
+#plot(x,yhatr,col='blue',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+xrange <- x
+Hrange <- H
+#xr <- 15
+#xl <- -15
+#par(new=T)
+#for (i in 1:p)
+#{
+#  plot(xrange,Hrange[,i],col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab='',ylab='')
+#  par(new=T)
+#}
+#par(new=F)  
+plot(lseq,emw,type = 'b')
+
+##############
+bestsol<-which.min(LOOLambda)
+w<-as.matrix(mw[bestsol,])
+yhatrbest<-sign(Hrange %*% w)  
+#plot(xrange,yhatrbest,col='yellow',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+#par(new=T)
+#plot(xrange,y,col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+bestLambda <- lseq[bestsol]
+
+plot(lseq,LOOLambda,type='b')
+
+print(bestsol)
+print(bestLambda)
+
+yhatTrain <- sign(H %*% peso)
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(y),factor(yhatTrain))$overall[1])
+accTrainReg <- as.numeric(confusionMatrix(factor(y),factor(yhatrbest))$overall[1])
+MSEtrain <- (t(y-yhatTrain) %*% (y-yhatTrain))/dim(y)[1]
+MSEtrainReg <- (t(y-yhatrbest) %*% (y-yhatrbest))/dim(y)[1]
+@
+
+TESTE BREAST CANCER 
+<<echo=FALSE>>=
+
+modelt <- treinaELM(Xtest,Ytest,p,0)
+modeltReg <- treinaELM(Xtest,Ytest,p,bestLambda)
+yht <- YELM(Xtest,modelt[[3]],modelt[[1]])
+yhtReg <- YELM(Xtest,modeltReg[[3]],modeltReg[[1]])
+
+accTest <- as.numeric(confusionMatrix(factor(Ytest),factor(yht))$overall[1])
+accTestReg <- as.numeric(confusionMatrix(factor(Ytest),factor(yhtReg))$overall[1])
+MSEtest <- (t(Ytest-yht) %*% (Ytest-yht))/dim(Ytest)[1]
+MSEtestReg <- (t(Ytest-yhtReg) %*% (Ytest-yhtReg))/dim(Ytest)[1]
+
+
+@
+
+HEART
+<<echo=FALSE>>=
+# carregando os dados
+heart <- as.matrix(read.table('heart.dat'))
+
+# tratando os dados com NA 
+heart[is.na(heart)] <- 0
+
+# rotulando as classes em -1 e 1 gracas a funcao de custo da ELM
+
+classes <- heart[,14]
+originalClasses <- heart[,14]
+classes[classes==2] <- (-1)
+
+heart <- as.matrix(heart[,1:13])
+class(heart) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+heart = (heart - min(heart))/(max(heart)-min(heart))
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+# separando conjuntos de treino e de teste em 70 e 30%
+separedData <-separeTrainAndTest(heart,classes,0.7)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+
+
+p <- 10
+N<-dim(Xtrain)[1]
+
+repeats <- 5
+mw2<-matrix(nrow=repeats,ncol=p)
+msem<-matrix(nrow=repeats,ncol=1)
+hlist <- list()
+
+for(i in 1: repeats){
+  model <- trainRBF(Xtrain,Ytrain,p,0)
+  mw2[i,] <- model[[3]]
+  hlist[[i]] <- model[[4]]
+  yhatTrain <- YRBF(Xtrain,model,binary = TRUE)
+  MSE <- (t(Ytrain-yhatTrain) %*% (Ytrain-yhatTrain))/dim(Ytrain)[1]
+  msem[i] <- MSE
+}
+
+msemin <- which.min(msem)
+peso <- mw2[msemin,]
+H <- hlist[[msemin]]
+yhatTrain <- sign(H %*% peso)
+# calcula a acuracia 
+
+accTrain <- as.numeric(confusionMatrix(factor(Ytrain),factor(yhatTrain))$overall[1])
+
+
+@
+
+
+<<echo=FALSE>>=
+####### Varia lambda e gera soluções ########
+lseq<-seq(0,1,0.01)
+nl<-length(lseq)
+mobjs<-matrix(nrow=nl,ncol=2)
+mw<-matrix(nrow=nl,ncol=p)
+cl<-0
+Alist<-list()
+Plist<-list()
+LOOLambda<-matrix(nrow = nl,ncol = 1)
+GCVLambda<-matrix(nrow = nl,ncol = 1)
+
+x <- Xtrain
+y <- Ytrain
+
+for (i in lseq)
+{
+  cl<-cl+1
+  w<-solve((t(H) %*% H) + i*diag(p)) %*% t(H) %*% y
+  Alist[[cl]] <- calcA(H,i*diag(p))
+  Plist[[cl]] <- calcP(H,Alist[[cl]],N)
+  LOOLambda[cl] <- calcLOO(Plist[[cl]],y,N)  
+  GCVLambda[cl] <- calcGCV(Plist[[cl]],y,N)
+ 
+  #mobjs[cl,2]<-sum(H %*% w - y)^2
+  #mobjs[cl,1]<-t(w) %*% w
+  mw[cl,]<-w
+}
+
+emw<-matrix(nrow=nl,ncol=1)
+cl<-0
+#model2 <- trainRBF(as.matrix(x2),y2,p,0)
+#H2 <- model2[[4]] 
+for (i in (1:nl))
+{
+  cl<-cl+1
+  w<-as.matrix(mw[i,])
+  yhatr<-H %*% w  
+  emw[cl]<-sum((yhatr-y)^2)
+  #plot(x,y,xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+  #plot(x,yhatr,col='red',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+  #par(new=T)
+ 
+}
+
+bestsolemw<-which.min(emw)
+bestLambdaemw <- lseq[bestsolemw]
+w<-as.matrix(mw[bestsolemw,])
+yhatr<-H %*% w  
+#par(new=T)
+#plot(x,yhatr,col='blue',xlim=c(-15,15),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+xrange <- x
+Hrange <- H
+#xr <- 15
+#xl <- -15
+#par(new=T)
+#for (i in 1:p)
+#{
+#  plot(xrange,Hrange[,i],col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab='',ylab='')
+#  par(new=T)
+#}
+#par(new=F)  
+plot(lseq,emw,type = 'b')
+
+##############
+bestsol<-which.min(LOOLambda)
+w<-as.matrix(mw[bestsol,])
+yhatrbest<-Hrange %*% w  
+#plot(xrange,yhatrbest,col='yellow',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+#par(new=T)
+#plot(xrange,y,col='blue',xlim=c(xl,xr),ylim=c(-0.5,1.5),xlab="x",ylab="f(x),h1(x),h2(x)")
+
+bestLambda <- lseq[bestsol]
+
+plot(lseq,LOOLambda,type='b')
+
+print(bestsol)
+print(bestLambda)
+@
+
+XOR
+<<echo=FALSE>>=
+cd0 <- mlbench.xor(100,sd = 0.05)
+x <- as.matrix(cd0$x)
+y <- as.matrix(cd0$classes)
+class(y) <- "numeric"
+y[y==2]<- (-1)
+y[y==1]<- (1)
+
+
+
+
+@
+
+
+
+
+
+
+\end{document}

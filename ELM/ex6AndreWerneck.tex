@@ -1,0 +1,181 @@
+\documentclass{article}
+
+\usepackage{Sweave}
+\begin{document}
+\input{ex6AndreWerneck-concordance}
+
+\title{Exercicio 6 - Redes Neurais Artificiais}
+\author{Andre Costa Werneck}
+\date{16/05/2022}
+\maketitle
+\newpage
+
+
+
+
+
+
+\section{ELM}
+\subsection{BASE BREAST CANCER}
+
+Para a base do Breast Cancer, seguem as acuracias com:
+\\p = 5 
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.829447852760736 +- 0.0481305989626327
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.913875598086124
+\end{Soutput}
+\end{Schunk}
+
+p = 10 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.891104294478528 +- 0.0430797526495011
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.933014354066986
+\end{Soutput}
+\end{Schunk}
+
+p = 30 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.945705521472393 +- 0.00819273031656856
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.923444976076555
+\end{Soutput}
+\end{Schunk}
+
+p = 50 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.96359918200409 +- 0.00595657835650396
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.956937799043062
+\end{Soutput}
+\end{Schunk}
+
+p = 100 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.980470347648262 +- 0.00457153264031039
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.92822966507177
+\end{Soutput}
+\end{Schunk}
+
+p = 300 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 1 +- 0
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.84688995215311
+\end{Soutput}
+\end{Schunk}
+
+Para comecar a analise, vale ressaltar que para cada treinamento da rede, com cada numero diferente de neuronios, foi feito um loop for que repetiu o treinamento e pegou os valores medios da acuracia, dos pesos e de Z, como pedido. 
+
+Dessa forma, observou-se, claramente, que para o conjunto de treinamento, a convergencia do modelo aumenta a medida que o numero de neuronios tambem cresce. Entretanto, a acuracia de teste parece ser maxima com o valor de p=30 ou p=50, nesse caso. Foi muito interessante notar, ademais, que se aumentarmos muito o numero de neuronios, a acuracia do conjunto de teste cai consideravelmente, mesmo que a acuracia do conjunto de treino permaneca maxima (em 100\%). Isso e um sinal claro de perda de capacidade de generalizacao do modelo, ou seja, e um forte indicio de overfitting. Dessa forma, foi valido observar que nem sempre a maxima acuracia de treino representa a melhor solucao para o problema, ilustrando ponto que ja haviamos aprendido nas aulas da disciplina. 
+
+Vale ressaltar que um treinamento com a mesma base de dados foi realizado com um Perceptron simples no exercicio anterior. No caso do perceptron, houve boa convergencia com um numero de epocas a partir de 100, com acuracia chegando a 97,6\%. Comparando os dois modelos vale dizer que foi observada uma maior rapidez na ELM para uma acuracia muito semelhante (com p= 30 e 50). Dessa forma, creio que fica evidente a melhora gracas a linearizacao do modelo advinda da camada escondida da ELM, modelo que pareceu apresentar, para esse, problema, menor custo computacional.   
+
+\subsection{Statlog (Heart)}
+
+
+
+
+Para a base da Statlog, seguem as acuracias com:
+\\p = 5 
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.726719576719577 +- 0.0245948638958122
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.753086419753086
+\end{Soutput}
+\end{Schunk}
+
+p = 10 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.828306878306878 +- 0.0320451424554358
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.839506172839506
+\end{Soutput}
+\end{Schunk}
+
+p = 30 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.864814814814815 +- 0.00795505120462764
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.827160493827161
+\end{Soutput}
+\end{Schunk}
+
+p = 50 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.883068783068783 +- 0.00839219069353207
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.839506172839506
+\end{Soutput}
+\end{Schunk}
+
+p = 100 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 0.946031746031746 +- 0.0135819947978325
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.703703703703704
+\end{Soutput}
+\end{Schunk}
+
+p = 300 
+
+
+\begin{Schunk}
+\begin{Soutput}
+acuracia treino = 1 +- 0
+\end{Soutput}
+\begin{Soutput}
+acuracia teste = 0.555555555555556
+\end{Soutput}
+\end{Schunk}
+
+Oservou-se que a mesma analise da base do breast cancer pode, tambem, ser feita para a base da Stalog. Vale apenas ressaltar que o modelo teve muito mais dificuldade de aprendizado para a presente base. Foi necessaria uma normalizacao dos dados para ajudar na obtencao de uma solucao melhor e, mesmo convergindo ate 100\% no treinamento, para os conjuntos de teste, a acuracia maxima nao passou muito dos 85\%. No que concerne overfitting e acuracias maximas, a analise e identica a da base do breast cancer.
+
+\section{Perceptron - Statlog(heart)}
+
+
+

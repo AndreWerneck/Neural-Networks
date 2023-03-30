@@ -1,0 +1,356 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\title{Exercicio 10 - Redes Neurais Artificiais}
+\author{Andre Costa Werneck}
+\date{26/06/2022}
+\maketitle
+\newpage
+
+\section{Boston Housing}
+
+Para a base de dados Boston Housing,o objetivo era prever os valores da variável MEDV, que representa o valor das casas ocupadas na unidade dos milhares de dólares.Os dados de erro foram obtidos através da média e do desvio padrão em 10 execuções diferentes do MLP. 
+
+<<echo=False>>=
+rm(list = ls())
+library('RSNNS')
+
+# carregando os dados
+housing <- as.matrix(read.table('housing.data'))
+
+# tratando os dados com NA 
+housing[is.na(housing)] <- 0
+
+# escolhendo apenas a variavel MEDV
+medv <- as.matrix(housing[,14])
+housing <- as.matrix(housing[,1:13])
+class(housing) <- "numeric"
+class(medv) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+housing = (housing - min(housing))/(max(housing)-min(housing))
+medv = (medv - min(medv))/(max(medv)-min(medv))
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+# separando conjuntos de treino e de teste em 60 e 40%
+separedData <-separeTrainAndTest(housing,medv,0.6)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+@
+
+
+\textbf{Usando uma arquitetura com 5 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 5,maxit = 1000,learnFunc = 'BackpropWeightDecay',learnFuncParams=c(1,0.01),linOut = TRUE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+\textbf{Usando uma arquitetura com 20 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 20,maxit = 1000,learnFunc = 'Rprop',linOut = TRUE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 40,maxit = 1000,learnFunc = 'Rprop',linOut = TRUE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+\textbf{Usando uma arquitetura com 5 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 5,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+
+\textbf{Usando uma arquitetura com 20 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 20,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 40,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- predict(model,Xtest)
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+@
+
+Para a base de dados da Boston Housing, ao utilizar a função de ativação linear na saída, observou-se claramente a tendência de overfitting da rede ao se aumentar o número de neurônios e constatou-se também que a melhor resolução do problema pode estar entre 10 e 20 neurônios. Além disso, ao usar a função logística como ativação da saída, observou-se uma maior estabilidade do erro, assim como valores bem próximos aos dos melhores resultados quando comparados aos obtidos com a função linear. De qualquer forma, mesmo com resultados ligeiramente piores com redes superdimensionadas, pode-se considerar que o MLP conseguiu apresentar uma boa solução para o problema de previsão dos preços das casas de Boston graças aos valores de erro de baixa magnitude observados. 
+
+
+\section{Statlog Heart}
+
+Para a base de dados Statlog Heart,o objetivo era prever os valores da variável MEDV, que representa o valor das casas ocupadas na unidade dos milhares de dólares.Os dados de erro foram obtidos através da média e do desvio padrão em 10 execuções diferentes do MLP. 
+
+<<echo=False>>=
+rm(list = ls())
+library('RSNNS')
+library('caret')
+
+
+# carregando os dados
+heart <- as.matrix(read.table('heart.dat'))
+
+# tratando os dados com NA 
+heart[is.na(heart)] <- 0
+
+# rotulando as classes em 0 e 1 gracas a funcao de custo do MLP
+
+classes <- heart[,14]
+originalClasses <- heart[,14]
+classes[classes==2] <- (0)
+
+heart <- as.matrix(heart[,1:13])
+class(heart) <- "numeric"
+classes <- as.matrix(classes)
+class(classes) <- "numeric"
+
+#tratando o conjunto para facilitar convergencia - atributos ficam entre 0 e 1
+
+heart = (heart - min(heart))/(max(heart)-min(heart))
+
+separeTrainAndTest <- function(x,y,percTrain){
+  
+  xin <- x
+  yin <- y
+  
+  indexTreino <- sample(dim(xin)[1])
+  
+  Xtrain <- xin[indexTreino[1:(dim(xin)[1]*percTrain)],]
+  Ytrain <- as.matrix(yin[indexTreino[1:(dim(xin)[1]*percTrain)],])
+  
+  Xtest <- xin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],]
+  Ytest <- as.matrix(yin[indexTreino[((dim(xin)[1]*percTrain)+1):dim(xin)[1]],])
+  
+  return(list(Xtrain,Ytrain,Xtest,Ytest))
+}
+
+# separando conjuntos de treino e de teste em 60 e 40%
+separedData <-separeTrainAndTest(heart,classes,0.6)
+
+Xtrain <- separedData[[1]]
+Ytrain <- separedData[[2]]
+Xtest <- separedData[[3]]
+Ytest <- separedData[[4]]
+@
+
+\textbf{Usando uma arquitetura com 5 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 5,maxit = 1000,learnFunc = 'Rprop',linOut = TRUE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+@
+
+\textbf{Usando uma arquitetura com 20 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 20,maxit = 1000,learnFunc = 'Rprop',linOut = TRUE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+
+@
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios e com 1000 iterações.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 40,maxit = 1000,learnFunc = 'Rprop',linOut = TRUE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+
+@
+
+\textbf{Usando uma arquitetura com 5 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 5,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+@
+
+
+\textbf{Usando uma arquitetura com 20 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 20,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+@
+
+
+\textbf{Usando uma arquitetura com 40 Neurônios, com 1000 iterações e com função de ativação logística.}
+
+<<echo=False>>=
+
+exec <- 10
+MSEvec <- matrix(nrow = exec,ncol = 1)
+for (i in 1:exec) {
+  model <- mlp(Xtrain,Ytrain,size = 40,maxit = 1000,learnFunc = 'Rprop',linOut = FALSE)
+  yhat <- round(predict(model,Xtest))
+  MSEvec[i] <- (t(Ytest-yhat) %*% (Ytest-yhat))/dim(Ytest)[1]
+}
+
+std <- sd(MSEvec)
+meanMSE <- mean(MSEvec)
+glue::glue("MSE médio +- desvio padrão = {meanMSE} +- {std}\n")
+
+acc <- as.numeric(confusionMatrix(factor(Ytest),factor(yhat))$overall[1])
+glue::glue("Acuracia = {acc}\n")
+
+@
+
+Já para a base da Statlog Heart, ficou claro que o modelo performa melhor com uma função logística, que, mais uma vez, apresentou os valores de erro mais estáveis e mais baixos. Isso poderia já ser esperado uma vez que o problema é de classificação e não de aproximação de funções. Entretanto, percebeu-se que essa base necessita de arquiteturas maiores para resolver o problema e apresentar uma solução plausível. Isso ficou bastante evidente ao se utilizar uma função de ativação linear na saída.
+
+\end{document}
+
